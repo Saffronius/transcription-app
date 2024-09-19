@@ -8,6 +8,7 @@ import logging
 import signal
 import sys
 from openai import OpenAI
+from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,7 +29,8 @@ def signal_handler(sig, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-client = OpenAI()  # Initialize OpenAI client
+load_dotenv()  # Load environment variables from .env file
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # Initialize OpenAI client with API key
 
 def record_audio_stream(audio_queue, duration, sample_rate=SAMPLE_RATE, channels=CHANNELS, chunk=CHUNK_SIZE):
     audio = pyaudio.PyAudio()
@@ -126,7 +128,7 @@ def process_audio_stream(audio_queue, translate=False):
     logging.info("Transcription thread terminating.")
 
 def main():
-    duration = 300  # Recording duration in seconds (5 minutes)
+    duration = 100  # Recording duration in seconds (5 minutes)
     audio_queue = queue.Queue()
 
     # Ask user if they want translation
