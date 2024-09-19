@@ -142,19 +142,20 @@ def main():
     output_directory = "recordings"
     os.makedirs(output_directory, exist_ok=True)
 
-    duration = 60  # Recording duration in seconds
+    duration = 15  # Recording duration in seconds
 
     audio_queue = queue.Queue()
 
     # Load the Whisper model once
     logging.info("Loading Whisper model...")
     try:
-        model = whisper.load_model("base")  # Using "base" for better accuracy
+        model = whisper.load_model("medium")  # Using "base" for better accuracy
         logging.info("Whisper model loaded successfully.")
     except Exception as e:
         logging.error(f"Error loading Whisper model: {e}")
         sys.exit(1)
-
+       
+    
     # Start the recording thread
     recording_thread = threading.Thread(target=record_audio_stream, args=(audio_queue, duration))
     recording_thread.start()
@@ -162,11 +163,11 @@ def main():
     # Start the transcription thread
     transcription_thread = threading.Thread(target=transcribe_audio_stream, args=(audio_queue, model))
     transcription_thread.start()
-# Wait for both threads to complete
+    # Wait for both threads to complete
     recording_thread.join()
     transcription_thread.join()
-
     logging.info("Transcription and typing completed.")
 
 if __name__ == "__main__":
     main()
+
