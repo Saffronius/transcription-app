@@ -8,6 +8,8 @@ import logging
 import signal
 import sys
 from openai import OpenAI
+import wave
+import tempfile
 from dotenv import load_dotenv
 
 # Configure logging
@@ -64,12 +66,18 @@ def record_audio_stream(audio_queue, duration, sample_rate=SAMPLE_RATE, channels
     audio_queue.put(None)  # Sentinel to indicate end of recording
 
 def transcribe_audio(audio_data, translate=False):
-    temp_file = "temp_audio.wav"
-    with open(temp_file, "wb") as f:
-        f.write(audio_data)
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+        temp_filename = temp_file.name
+        
+    # Save audio data as WAV file
+    with wave.open(temp_filename, 'wb') as wf:
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(2)  # 2 bytes for 'int16' type
+        wf.setframerate(SAMPLE_RATE)
+        wf.writeframes(audio_data)
     
     try:
-        with open(temp_file, "rb") as audio_file:
+        with open(temp_filename, "rb") as audio_file:
             if translate:
                 response = client.audio.translations.create(
                     model="whisper-1",
@@ -82,9 +90,12 @@ def transcribe_audio(audio_data, translate=False):
                     file=audio_file,
                     response_format="text"
                 )
-        return response.text
+        return response  # The response is already a string
+    except Exception as e:
+        logging.error(f"Error in transcription: {e}")
+        return ""
     finally:
-        os.remove(temp_file)
+        os.remove(temp_filename)
 
 def correct_transcript(transcript):
     system_prompt = "You are a helpful transcription assistant. Your task is to correct any spelling discrepancies, or convert semantically incorrect text to semantically correct text for LLMs or humans to understand. Add necessary punctuation such as periods, commas, and capitalization, and use only the context provided."
@@ -117,10 +128,11 @@ def process_audio_stream(audio_queue, translate=False):
 
         if len(audio_buffer) >= buffer_size:
             transcription = transcribe_audio(audio_buffer, translate)
-            corrected_transcription = correct_transcript(transcription)
-            
-            logging.info(f"Transcription: {corrected_transcription}")
-            keyboard.type(corrected_transcription + " ")
+            if transcription:
+                corrected_transcription = correct_transcript(transcription)
+                
+                logging.info(f"Transcription: {corrected_transcription}")
+                keyboard.type(corrected_transcription + " ")
 
             # Keep the overlap
             audio_buffer = audio_buffer[int(-OVERLAP_DURATION * SAMPLE_RATE * 2):]
